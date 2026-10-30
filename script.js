@@ -1,4 +1,4 @@
-import { playCurrentEntrance } from "./animations.js";
+import { playCurrentEntrance, playForecastEntrance } from "./animations.js";
 
 // UI layer. Pure helpers live in weather.js (window.Weather).
 // Data: Open-Meteo geocoding + forecast APIs, which need no API key.
@@ -105,6 +105,7 @@ import { playCurrentEntrance } from "./animations.js";
       save("weather-last-place", JSON.stringify(place));
       render();
       playCurrentEntrance();
+      playForecastEntrance();
     } catch (err) {
       if (id !== requestId) return;
       lastForecast = null;
