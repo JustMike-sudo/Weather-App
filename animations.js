@@ -31,6 +31,15 @@ export const motionOK = () => !reducedMotion.matches;
 // Design rule: render() in script.js always writes the FINAL text first. The
 // counting is decoration on top, so if it is skipped or interrupted the page
 // still shows the right number.
+//
+// ---------- Module 5: feedback (shake + loading pulse) ----------
+// Small animations that tell the user something happened. Three rules:
+//   1. Keep them short. A shake is ~350ms; a loop must have an owner who stops it.
+//   2. Motion is never the ONLY signal. Errors also change the text and colour,
+//      and .current.loading is dimmed by plain CSS, so "reduce motion" users
+//      lose nothing but the movement.
+//   3. Each animation has one handle (shaking, loading) so a new one replaces
+//      the old instead of fighting it.
 
 // What every number animation shares. `state` is the plain object being animated.
 function numberParams(state, el, { to, format }) {
@@ -53,6 +62,7 @@ export function playEntrance({ temperature } = {}) {
   // that timeline and undoes the inline styles it left on the elements.
   entrance?.revert();
   entrance = null;
+  stopLoading(); // the entrance takes over the icon, so the loading pulse must end
   if (!motionOK()) return;
 
   // GOTCHA (Module 3): a timeline only applies an element's starting values when
@@ -122,4 +132,48 @@ export function countNumber(el, from, to, format) {
 
   const state = { n: from };
   counter = animate(state, numberParams(state, el, { to, format }));
+}
+
+let shaking = null;
+let loading = null;
+
+// A quick side-to-side shake, e.g. for a search that found nothing.
+// An array of { to } steps is a set of KEYFRAMES played one after another.
+export function shake(selector) {
+  shaking?.revert(); // revert() also removes the leftover inline transform
+  shaking = null;
+  if (!motionOK()) return;
+
+  shaking = animate(selector, {
+    x: [
+      { to: -9, duration: 70 },
+      { to: 9, duration: 70 },
+      { to: -6, duration: 70 },
+      { to: 6, duration: 70 },
+      { to: 0, duration: 70 },
+    ],
+    ease: 'inOutSine',
+  });
+}
+
+// A gentle pulse on the weather icon while we wait for the network.
+// loop: true repeats forever and alternate: true plays it back and forth, so it
+// breathes in and out. Anything that loops forever MUST be stopped.
+export function startLoading() {
+  loading?.revert();
+  loading = null;
+  if (!motionOK()) return; // the CSS dimming of .current.loading still shows
+
+  loading = animate('#icon', {
+    opacity: [1, 0.25],
+    duration: 650,
+    ease: 'inOutSine',
+    alternate: true,
+    loop: true,
+  });
+}
+
+export function stopLoading() {
+  loading?.revert(); // puts the icon back exactly as it was
+  loading = null;
 }

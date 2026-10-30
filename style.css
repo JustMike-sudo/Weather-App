@@ -194,3 +194,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Errors get a colour as well as a shake, so motion is never the only signal. */
+.current.error .condition { color: #E76F51; font-weight: bold; }

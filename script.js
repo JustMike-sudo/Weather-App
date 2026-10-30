@@ -1,4 +1,4 @@
-import { playEntrance, skipEntrance, countNumber } from "./animations.js";
+import { playEntrance, skipEntrance, countNumber, shake, startLoading, stopLoading } from "./animations.js";
 
 // UI layer. Pure helpers live in weather.js (window.Weather).
 // Data: Open-Meteo geocoding + forecast APIs, which need no API key.
@@ -53,9 +53,11 @@ import { playEntrance, skipEntrance, countNumber } from "./animations.js";
   }
 
   // ---------- Rendering ----------
-  function setStatus(location, message) {
+  function setStatus(location, message, isError = false) {
     $("city-name").textContent = location;
     $("description").textContent = message;
+    // Colour is a second signal for errors, so they never depend on motion alone.
+    currentEl.classList.toggle("error", isError);
   }
 
   function render() {
@@ -100,6 +102,7 @@ import { playEntrance, skipEntrance, countNumber } from "./animations.js";
     currentEl.setAttribute("aria-busy", "true");
     currentEl.classList.add("loading");
     setStatus(Weather.placeName(place), "Fetching weather...");
+    startLoading();
     try {
       const forecast = Weather.parseForecast(await fetchForecast(place.latitude, place.longitude));
       if (id !== requestId) return;
@@ -112,6 +115,7 @@ import { playEntrance, skipEntrance, countNumber } from "./animations.js";
       playEntrance({ temperature: { from: fromTemp, to: shownTemp(forecast.current.temp), format: tempText } });
     } catch (err) {
       if (id !== requestId) return;
+      stopLoading();
       lastForecast = null;
       forecastEl.replaceChildren();
       $("details").hidden = true;
@@ -119,7 +123,8 @@ import { playEntrance, skipEntrance, countNumber } from "./animations.js";
       $("temperature").textContent = "--°";
       setStatus(Weather.placeName(place), err instanceof TypeError
         ? "Couldn't reach the weather service. Check your connection."
-        : err.message);
+        : err.message, true);
+      shake("#current");
     } finally {
       if (id === requestId) {
         currentEl.setAttribute("aria-busy", "false");
@@ -132,18 +137,24 @@ import { playEntrance, skipEntrance, countNumber } from "./animations.js";
     requestId++; // cancels any forecast still loading
     hideSuggestions();
     setStatus("Searching...", "");
+    startLoading();
     try {
       const places = await findPlaces(query);
       if (places.length === 0) {
-        setStatus("No results", "Couldn't find \"" + query + "\". Try another city.");
+        stopLoading();
+        setStatus("No results", "Couldn't find \"" + query + "\". Try another city.", true);
+        shake("#city-input");
       } else if (places.length === 1) {
-        showPlace(places[0]);
+        showPlace(places[0]); // takes over the loading pulse
       } else {
+        stopLoading();
         showSuggestions(places);
         setStatus("Pick a place", "Several matches for \"" + query + "\".");
       }
     } catch {
-      setStatus("Search failed", "Couldn't reach the search service. Check your connection.");
+      stopLoading();
+      setStatus("Search failed", "Couldn't reach the search service. Check your connection.", true);
+      shake("#city-input");
     }
   }
 
@@ -174,13 +185,18 @@ import { playEntrance, skipEntrance, countNumber } from "./animations.js";
 
   $("locate-btn").addEventListener("click", () => {
     if (!navigator.geolocation) {
-      setStatus("Location unavailable", "Your browser doesn't support geolocation.");
+      setStatus("Location unavailable", "Your browser doesn't support geolocation.", true);
       return;
     }
     setStatus("Locating...", "");
+    startLoading();
     navigator.geolocation.getCurrentPosition(
       (pos) => showPlace({ name: "Your location", latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      () => setStatus("Location blocked", "Allow location access, or search for a city instead."),
+      () => {
+        stopLoading();
+        setStatus("Location blocked", "Allow location access, or search for a city instead.", true);
+        shake("#locate-btn");
+      },
       { timeout: 10000 }
     );
   });
