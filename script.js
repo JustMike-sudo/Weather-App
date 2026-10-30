@@ -1,4 +1,4 @@
-import { playEntrance } from "./animations.js";
+import { playEntrance, skipEntrance, countNumber } from "./animations.js";
 
 // UI layer. Pure helpers live in weather.js (window.Weather).
 // Data: Open-Meteo geocoding + forecast APIs, which need no API key.
@@ -9,6 +9,9 @@ import { playEntrance } from "./animations.js";
   const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
   const $ = (id) => document.getElementById(id);
+  // The big temperature as a whole number in the current unit, and as text.
+  const shownTemp = (celsius) => Weather.convertTemp(celsius, unit);
+  const tempText = (n) => n + "°" + unit;
   const form = $("search-form");
   const input = $("city-input");
   const currentEl = $("current");
@@ -100,11 +103,13 @@ import { playEntrance } from "./animations.js";
     try {
       const forecast = Weather.parseForecast(await fetchForecast(place.latitude, place.longitude));
       if (id !== requestId) return;
+      // Count from the number on screen now (or from 0 the first time).
+      const fromTemp = lastForecast ? shownTemp(lastForecast.current.temp) : 0;
       lastForecast = forecast;
       lastPlace = Weather.placeName(place);
       save("weather-last-place", JSON.stringify(place));
       render();
-      playEntrance();
+      playEntrance({ temperature: { from: fromTemp, to: shownTemp(forecast.current.temp), format: tempText } });
     } catch (err) {
       if (id !== requestId) return;
       lastForecast = null;
@@ -185,10 +190,17 @@ import { playEntrance } from "./animations.js";
   }
   document.querySelectorAll(".unit").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.dataset.unit === unit) return;
+      skipEntrance(); // let any entrance finish so the old number is on screen
+      const before = lastForecast ? shownTemp(lastForecast.current.temp) : null;
       unit = btn.dataset.unit;
       save("weather-unit", unit);
       syncUnitButtons();
-      render();
+      render(); // writes the final text for the new unit
+      if (before !== null) {
+        // glide from the old number to the new one, e.g. 77 -> 25
+        countNumber($("temperature"), before, shownTemp(lastForecast.current.temp), tempText);
+      }
     });
   });
 
