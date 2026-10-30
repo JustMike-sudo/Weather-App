@@ -18,6 +18,13 @@ test("temperature formatting", () => {
   assert.equal(W.formatTemp(null, "C"), "--°");
 });
 
+test("convertTemp returns the whole number shown in each unit", () => {
+  assert.equal(W.convertTemp(25, "C"), 25);
+  assert.equal(W.convertTemp(25, "F"), 77);
+  assert.equal(W.convertTemp(21.6, "C"), 22);
+  assert.equal(W.convertTemp(-3.4, "C"), -3);
+});
+
 test("weekday labels do not shift with timezone", () => {
   assert.equal(W.weekday("2026-10-30", 0), "Today");
   assert.equal(W.weekday("2026-10-30", 1), "Fri");

@@ -1,3 +1,5 @@
+import { playEntrance, skipEntrance, countNumber, shake, startLoading, stopLoading } from "./animations.js";
+
 // UI layer. Pure helpers live in weather.js (window.Weather).
 // Data: Open-Meteo geocoding + forecast APIs, which need no API key.
 (function () {
@@ -7,6 +9,9 @@
   const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
   const $ = (id) => document.getElementById(id);
+  // The big temperature as a whole number in the current unit, and as text.
+  const shownTemp = (celsius) => Weather.convertTemp(celsius, unit);
+  const tempText = (n) => n + "°" + unit;
   const form = $("search-form");
   const input = $("city-input");
   const currentEl = $("current");
@@ -48,9 +53,11 @@
   }
 
   // ---------- Rendering ----------
-  function setStatus(location, message) {
+  function setStatus(location, message, isError = false) {
     $("city-name").textContent = location;
     $("description").textContent = message;
+    // Colour is a second signal for errors, so they never depend on motion alone.
+    currentEl.classList.toggle("error", isError);
   }
 
   function render() {
@@ -95,15 +102,20 @@
     currentEl.setAttribute("aria-busy", "true");
     currentEl.classList.add("loading");
     setStatus(Weather.placeName(place), "Fetching weather...");
+    startLoading();
     try {
       const forecast = Weather.parseForecast(await fetchForecast(place.latitude, place.longitude));
       if (id !== requestId) return;
+      // Count from the number on screen now (or from 0 the first time).
+      const fromTemp = lastForecast ? shownTemp(lastForecast.current.temp) : 0;
       lastForecast = forecast;
       lastPlace = Weather.placeName(place);
       save("weather-last-place", JSON.stringify(place));
       render();
+      playEntrance({ temperature: { from: fromTemp, to: shownTemp(forecast.current.temp), format: tempText } });
     } catch (err) {
       if (id !== requestId) return;
+      stopLoading();
       lastForecast = null;
       forecastEl.replaceChildren();
       $("details").hidden = true;
@@ -111,7 +123,8 @@
       $("temperature").textContent = "--°";
       setStatus(Weather.placeName(place), err instanceof TypeError
         ? "Couldn't reach the weather service. Check your connection."
-        : err.message);
+        : err.message, true);
+      shake("#current");
     } finally {
       if (id === requestId) {
         currentEl.setAttribute("aria-busy", "false");
@@ -124,18 +137,24 @@
     requestId++; // cancels any forecast still loading
     hideSuggestions();
     setStatus("Searching...", "");
+    startLoading();
     try {
       const places = await findPlaces(query);
       if (places.length === 0) {
-        setStatus("No results", "Couldn't find \"" + query + "\". Try another city.");
+        stopLoading();
+        setStatus("No results", "Couldn't find \"" + query + "\". Try another city.", true);
+        shake("#city-input");
       } else if (places.length === 1) {
-        showPlace(places[0]);
+        showPlace(places[0]); // takes over the loading pulse
       } else {
+        stopLoading();
         showSuggestions(places);
         setStatus("Pick a place", "Several matches for \"" + query + "\".");
       }
     } catch {
-      setStatus("Search failed", "Couldn't reach the search service. Check your connection.");
+      stopLoading();
+      setStatus("Search failed", "Couldn't reach the search service. Check your connection.", true);
+      shake("#city-input");
     }
   }
 
@@ -166,13 +185,18 @@
 
   $("locate-btn").addEventListener("click", () => {
     if (!navigator.geolocation) {
-      setStatus("Location unavailable", "Your browser doesn't support geolocation.");
+      setStatus("Location unavailable", "Your browser doesn't support geolocation.", true);
       return;
     }
     setStatus("Locating...", "");
+    startLoading();
     navigator.geolocation.getCurrentPosition(
       (pos) => showPlace({ name: "Your location", latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      () => setStatus("Location blocked", "Allow location access, or search for a city instead."),
+      () => {
+        stopLoading();
+        setStatus("Location blocked", "Allow location access, or search for a city instead.", true);
+        shake("#locate-btn");
+      },
       { timeout: 10000 }
     );
   });
@@ -182,10 +206,17 @@
   }
   document.querySelectorAll(".unit").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.dataset.unit === unit) return;
+      skipEntrance(); // let any entrance finish so the old number is on screen
+      const before = lastForecast ? shownTemp(lastForecast.current.temp) : null;
       unit = btn.dataset.unit;
       save("weather-unit", unit);
       syncUnitButtons();
-      render();
+      render(); // writes the final text for the new unit
+      if (before !== null) {
+        // glide from the old number to the new one, e.g. 77 -> 25
+        countNumber($("temperature"), before, shownTemp(lastForecast.current.temp), tempText);
+      }
     });
   });
 

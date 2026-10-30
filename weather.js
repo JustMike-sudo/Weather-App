@@ -31,10 +31,14 @@
 
   const toFahrenheit = (c) => (c * 9) / 5 + 32;
 
+  // The whole number shown for a temperature in the given unit.
+  function convertTemp(celsius, unit) {
+    return Math.round(unit === "F" ? toFahrenheit(celsius) : celsius);
+  }
+
   function formatTemp(celsius, unit) {
     if (celsius == null || Number.isNaN(celsius)) return "--°";
-    const value = unit === "F" ? toFahrenheit(celsius) : celsius;
-    return Math.round(value) + "°";
+    return convertTemp(celsius, unit) + "°";
   }
 
   // "2026-10-30" -> "Fri". Parsed as a local date so the weekday can't
@@ -75,7 +79,7 @@
     };
   }
 
-  const api = { describeCode, toFahrenheit, formatTemp, weekday, placeName, parseForecast };
+  const api = { describeCode, toFahrenheit, convertTemp, formatTemp, weekday, placeName, parseForecast };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Weather = api;
 })(this);
