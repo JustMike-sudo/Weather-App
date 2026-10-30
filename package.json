@@ -1,0 +1,13 @@
+{
+  "name": "weather-app",
+  "private": true,
+  "description": "Cel-shaded weather app. The app itself needs no build step; npm is only used for tests and to rebuild the slim anime.js bundle.",
+  "scripts": {
+    "test": "node --test",
+    "build:vendor": "esbuild vendor/anime-entry.js --bundle --minify --format=esm --banner:js=\"/* anime.js 4.5.0 (MIT) https://animejs.com - only the parts this app uses. Rebuild: npm run build:vendor */\" --outfile=vendor/anime.slim.min.js"
+  },
+  "devDependencies": {
+    "animejs": "4.5.0",
+    "esbuild": "0.28.2"
+  }
+}

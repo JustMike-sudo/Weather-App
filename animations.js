@@ -1,6 +1,6 @@
 // All motion lives here so the rest of the app stays easy to read.
 // Each "Module" below adds one anime.js idea. Docs: https://animejs.com/documentation
-import { animate, createTimeline, stagger, utils } from './vendor/anime.esm.min.js';
+import { animate, createTimeline, stagger, utils } from './vendor/anime.slim.min.js';
 
 // Some people turn on "reduce motion" in their OS because movement can make them
 // feel unwell. Every animation checks this first and simply does nothing.
